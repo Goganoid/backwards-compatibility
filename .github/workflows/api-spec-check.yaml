@@ -29,13 +29,14 @@ jobs:
 
       - name: Generate schema for base branch
         run: |
+          cd base
           npm install
           npm run generate:schema
           cp swagger.json ~/swagger-base.json
 
       - name: Generate schema for PR branch
         run: |
-          cd pr/services/wingtra-api-service
+          cd pr
           yarn install
           yarn run generate:schema
           cp swagger.json ~/swagger-pr.json
