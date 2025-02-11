@@ -1,0 +1,60 @@
+name: Detect breaking changes in API
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+jobs:
+  oasdiff-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          path: pr
+
+      - name: Checkout base branch (target of PR)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          path: base
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install oasdiff
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/tufin/oasdiff/main/install.sh | sh
+
+      - name: Generate schema for base branch
+        run: |
+          npm install
+          npm run generate:schema
+          cp swagger.json ~/swagger-base.json
+
+      - name: Generate schema for PR branch
+        run: |
+          cd pr/services/wingtra-api-service
+          yarn install
+          yarn run generate:schema
+          cp swagger.json ~/swagger-pr.json
+
+      - name: Run OASDiff
+        id: oasdiff
+        continue-on-error: true
+        run: |
+          oasdiff breaking --format markup --fail-on WARN ~/swagger-base.json ~/swagger-pr.json | tee ~/oasdiff-result.txt
+          result_code=${PIPESTATUS[0]}
+          exit $result_code
+
+      - name: Comment on PR if there are breaking changes
+        if: ${{ steps.oasdiff.outcome == 'failure' }}
+        uses: mshick/add-pr-comment@v2
+        with:
+          message-path: ~/oasdiff-result.txt
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fail if breaking changes are detected
+        if: ${{ steps.oasdiff.outcome == 'failure' }}
+        run: exit 1
