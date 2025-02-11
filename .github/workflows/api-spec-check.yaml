@@ -37,8 +37,8 @@ jobs:
       - name: Generate schema for PR branch
         run: |
           cd pr
-          yarn install
-          yarn run generate:schema
+          npm install
+          npm run generate:schema
           cp swagger.json ~/swagger-pr.json
 
       - name: Run OASDiff
